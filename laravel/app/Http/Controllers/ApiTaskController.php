@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Task;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class ApiTaskController extends Controller
 {
@@ -16,7 +17,9 @@ class ApiTaskController extends Controller
     public function index(Request $request)
     {
         $pageSize = 3; // Number of tasks per page
-        $tasks = Task::query();
+        $user = Auth::user();
+
+        $tasks = Task::where('user_id', $user->id); // Filter by authenticated user
 
         // Filter tasks based on completion status
         if ($request->has('completed')) {
@@ -54,7 +57,9 @@ class ApiTaskController extends Controller
             'due_date' => 'nullable|date',
         ]);
 
-        $task = Task::create($validated);
+        $user = Auth::user();
+
+        $task = Task::create(array_merge($validated, ['user_id' => $user->id]));
 
         return response()->json([
             'message' => 'Task created successfully!',
@@ -67,6 +72,9 @@ class ApiTaskController extends Controller
      */
     public function show(Task $task)
     {
+        if (Auth::user()->id !== $task->user_id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
         return response()->json($task);
     }
 
@@ -75,6 +83,10 @@ class ApiTaskController extends Controller
      */
     public function update(Request $request, Task $task)
     {
+        if (Auth::user()->id !== $task->user_id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
         $validated = $request->validate([
             'title' => 'nullable|string|max:255',
             'description' => 'nullable|string',
@@ -96,7 +108,11 @@ class ApiTaskController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Task $task) {
+    public function destroy(Task $task)
+    {
+        if (Auth::user()->id !== $task->user_id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
         $task->delete();
         return response()->json(['message' => 'Task deleted successfully!']);
     }
