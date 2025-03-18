@@ -125,8 +125,7 @@ class TaskController extends Controller
         $task->update([
             'title'         => $request->title,
             'description'   => $request->description,
-            'due_date'      => $request->due_date,
-            'completed'     => $request->has('completed') ? now() : null, // Instead of using boolean, used timestamp to record completed time
+            'due_date'      => $request->due_date
         ]);
 
         return redirect()->route('tasks.index')->with('success', 'Task updated successfully!');
