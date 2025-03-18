@@ -26,19 +26,8 @@ class UnsetUserTokenCookie
      */
     public function handle(Logout $event): void
     {
-        $token_name             = config('constants.USER_API_TOKEN_COOKIE');
-        $cookie                 = Cookie::make(
-                                    $token_name,
-                                    '',
-                                    -1,  //setting minus time for unsetting cookie
-                                    '/',
-                                    null,
-                                    true,
-                                    (bool)env('PROD_ENVIRONMENT'),
-                                    'strict'
-                                );
-
+        $token_name = config('constants.USER_API_TOKEN_COOKIE');
         Cookie::queue(Cookie::forget($token_name));
-        Log::info($token_name.' 1234 token cookie has been unset for user: ' . $event->user->email);
+        Log::info($token_name.' token cookie has been unset for user: ' . $event->user->email);
     }
 }
