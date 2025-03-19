@@ -140,7 +140,7 @@ class ApiTaskController extends Controller
             ]
         );
 
-        if ($task->user_id !== $request->user()->id) {
+        if (!isset($request->user()->id) or $task->user_id !== $request->user()->id) {
             return response()->json(['message' => 'You are not authorized to update this task'], 403);
         }
 
