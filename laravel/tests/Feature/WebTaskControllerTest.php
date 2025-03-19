@@ -11,6 +11,10 @@ use Tests\TestCase;
 class WebTaskControllerTest extends TestCase
 {
 
+    use RefreshDatabase;
+
+    //=============================START OF INDEX TESTS========================================//
+
     /**
      * @test
      * @return void
@@ -50,6 +54,21 @@ class WebTaskControllerTest extends TestCase
     /**
      * @test
      * @return void
+     * Test to make sure no non logged in users can access tasks and redirection works
+     */
+    public function can_guest_access_tasks_page(): void
+    {
+        $response = $this->get(route('tasks.index'));                       // Trying to access without authentication
+        $response->assertRedirect(route('login'));                          // Force redirect to login
+    }
+
+    //=============================END OF INDEX TESTS========================================//
+
+    //=============================START OF CREATE TESTS========================================//
+
+    /**
+     * @test
+     * @return void
      * Function to check if create() path works
      */
     public function can_authenticated_user_access_create_task_page(): void
@@ -60,17 +79,6 @@ class WebTaskControllerTest extends TestCase
         $response->assertViewIs('tasks.create');                             // Assert the `tasks.create` view is returned
     }
 
-
-    /**
-     * @test
-     * @return void
-     * Test to make sure no non logged in users can access tasks and redirection works
-     */
-    public function can_guest_access_tasks_page(): void
-    {
-        $response = $this->get(route('tasks.index'));                       // Trying to access without authentication
-        $response->assertRedirect(route('login'));                          // Force redirect to login
-    }
 
     /**
      * @test
@@ -183,6 +191,9 @@ class WebTaskControllerTest extends TestCase
         $response->assertRedirect(route('login'));                          // Force redirect to login
     }
 
+    //=============================END OF CREATE TESTS========================================//
+
+    //=============================START OF EDIT TESTS========================================//
 
     /**
      * @return void
@@ -213,6 +224,9 @@ class WebTaskControllerTest extends TestCase
         $response->assertRedirect(route('login'));
     }
 
+    //=============================START OF EDIT TESTS========================================//
+
+    //=============================START OF UPDATE TESTS========================================//
 
     /**
      * @return void
@@ -302,6 +316,9 @@ class WebTaskControllerTest extends TestCase
         $this->assertDatabaseMissing('tasks', ['id' => $task->id, 'title' => '', 'due_date' => 'invalid-date']);
     }
 
+    //=============================END OF UPDATE TESTS========================================//
+
+    //=============================START OF DELETE TESTS========================================//
 
     /**
      * @return void
@@ -341,11 +358,12 @@ class WebTaskControllerTest extends TestCase
     {
         $user       = User::factory()->create();
         $task       = Task::factory()->create(['user_id' => $user->id]);      //task used for testing
-        $response = $this->delete(route('tasks.destroy', $task->id));   //guest trying to delete the legit task
+        $response   = $this->delete(route('tasks.destroy', $task->id));   //guest trying to delete the legit task
         $response->assertStatus(403);                                   //error status
         $response->assertRedirect(route('login'));                      // Assuming guest users are redirected to login
         $this->assertDatabaseHas('tasks', ['id' => $task->id]);         // Task should still exist
     }
 
+    //=============================END OF DELETE TESTS========================================//
 
 }
