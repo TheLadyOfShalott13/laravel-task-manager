@@ -73,13 +73,29 @@
 @section('scripts')
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script>
-        const apiBaseUrl = '{{ url('/api/tasks') }}'; // Base URL for the API
+        const apiBaseUrl = '{{ url('/api/tasks/') }}'; // Base URL for the API
 
         // Mark a task as completed
         async function markAsCompleted(taskId) {
             try {
-                const response = await axios.put(`${apiBaseUrl}/${taskId}`, {
-                    completed: true
+                // Retrieve the token from cookies (assuming the token is stored as 'authToken')
+                const token = document.cookie
+                    .split('; ')
+                    .find(row => row.startsWith('{{config('constants.USER_API_TOKEN_COOKIE')}}='))
+                    ?.split('=')[1];
+
+                if (!token) {
+                    alert('Authorization token not found. Please log in.');
+                    return;
+                }
+
+                // Perform the PUT request with the Authorization Bearer token
+                const response = await axios.put(`${apiBaseUrl}/update_status/${taskId}`, {
+                    completed: new Date().toISOString().replace('T', ' ').replace('Z', '')
+                }, {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
                 });
 
                 alert(response.data.message || 'Task marked as completed!');
@@ -95,7 +111,22 @@
             if (!confirm('Are you sure you want to delete this task?')) return;
 
             try {
-                const response = await axios.delete(`${apiBaseUrl}/${taskId}`);
+
+                const token = document.cookie
+                    .split('; ')
+                    .find(row => row.startsWith('{{config('constants.USER_API_TOKEN_COOKIE')}}='))
+                    ?.split('=')[1];
+
+                if (!token) {
+                    alert('Authorization token not found. Please log in.');
+                    return;
+                }
+
+                const response = await axios.delete(`${apiBaseUrl}/${taskId}`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`, // Add the Bearer token
+                    },
+                });
                 alert(response.data.message || 'Task deleted successfully!');
                 window.location.reload();
             } catch (error) {
