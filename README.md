@@ -2,6 +2,10 @@
 
 This is a simple task management application built with Laravel, designed to help users organize and track their tasks efficiently.
 
+## Sample Screenshots
+![Login Page](login.png)
+![Main Dashboard Page](main-dashboard.png)
+
 ## Features
 
 * **Task Creation:** Users can create new tasks with titles, descriptions, and due dates.
