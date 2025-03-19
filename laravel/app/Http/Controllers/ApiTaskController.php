@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class ApiTaskController extends Controller
 {
@@ -131,12 +132,6 @@ class ApiTaskController extends Controller
                 'title'         => 'required|string|max:150',
                 'description'   => 'nullable|string|max:255',
                 'due_date'      => 'required|date',
-            ],
-
-            //Array for error messages for every failed validation
-            [
-                'required'      => 'The :attribute field is required.',
-                'date'          => 'The :attribute must be a date.'
             ]
         );
 
@@ -145,6 +140,25 @@ class ApiTaskController extends Controller
         }
 
         if ($task->update($validated))
+            return response()->json(['message' => 'Task updated successfully'], 200);
+        else
+            return response()->json(['message' => 'Task not found'], 404);
+    }
+
+
+    /**
+     * @param Request $request
+     * @param Task $task
+     * @return JsonResponse
+     * Function to update a single task
+     */
+    public function update_status(Request $request, Task $task)
+    {
+        if (!isset($request->user()->id) or $task->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'You are not authorized to update this task'], 403);
+        }
+
+        if (DB::update('UPDATE tasks SET completed = ? WHERE id = ?', [$request->completed, $task->id]))
             return response()->json(['message' => 'Task updated successfully'], 200);
         else
             return response()->json(['message' => 'Task not found'], 404);

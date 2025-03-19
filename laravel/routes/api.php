@@ -10,4 +10,5 @@ Route::post('/generate_token', function (Request $request) {
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('tasks', ApiTaskController::class);
+    Route::put('tasks/update_status/{task}', [ApiTaskController::class, 'update_status'])->name('tasks.update_status');
 });
