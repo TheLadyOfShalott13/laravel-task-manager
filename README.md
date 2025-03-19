@@ -50,23 +50,21 @@ This is a simple task management application built with Laravel, designed to hel
     php artisan migrate
     ```
 
-6.  **Install Laravel Sanctum:**
-
+6.  **Run docker compose (make sure docker-compose is already installed on your machine):**
+    
     ```bash
-    composer require laravel/sanctum
-    php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
-    php artisan migrate
+     docker-compose up -d --build
     ```
 
-7.  **Start the development server:**
+7.  **(Optional) To enter into the container shell:**
 
     ```bash
-    php artisan serve
+     docker-compose exec app sh 
     ```
 
 8.  **Access the application in your browser:**
 
-    * Open `http://localhost:8000` in your browser.
+    * Open `http://localhost:8000/login` in your browser.
 
 ## API Usage
 
