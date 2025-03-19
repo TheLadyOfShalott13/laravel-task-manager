@@ -47,7 +47,7 @@ class TaskController extends Controller
 
     /**
      * @return Factory|View|Application|object
-     * Form for creating new task
+     * Returning the form to be displayed for creating new task
      */
     public function create()
     {
@@ -61,6 +61,10 @@ class TaskController extends Controller
      */
     public function store(Request $request)
     {
+        if (!isset(Auth::user()->id)) {
+            abort(403, 'Unauthorized user');
+        }
+
         $request->validate(
             //Array for validation params
             [
