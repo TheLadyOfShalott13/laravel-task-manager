@@ -13,6 +13,7 @@ This is a simple task management application built with Laravel, designed to hel
 * **API Functionality:** Provides an API for task management, secured with Laravel Sanctum for token-based authentication.
 * **Search and Filtering:** Tasks can be searched and filtered.
 * **Pagination:** Tasks are paginated to improve performance.
+* **Cookie Setting**: Upon successful login, users have an access bearer token set by a cookie, this shall be destroyed when the user logs out. This is needed when the APIs are called for updating status or deleting task in the listings page.
 
 ## Installation
 
@@ -77,11 +78,20 @@ This is a simple task management application built with Laravel, designed to hel
     * Set the `Authorization` header to `Bearer your_generated_token`.
 
 3.  **API Routes:**
-    * `GET /api/tasks`: List tasks (with search and filter options).
+    * `POST /api/generate_token`: Generate Auth Bearer token to authorize all API requests
+    * `GET /api/tasks`: List all tasks
     * `POST /api/tasks`: Create a new task.
     * `GET /api/tasks/{task}`: Show a specific task.
     * `PUT/PATCH /api/tasks/{task}`: Update a task.
     * `DELETE /api/tasks/{task}`: Delete a task.
+    * `PUT/PATCH /api/tasks/update_status/{task}`: Set completion date for a task
+
+4. **API Documentation** can be viewed [here](API-README.md)
+
+## Testing
+There are two main controllers that have tests written for each service. These are located at:
+* API Testing at`laravel/tests/Feature/ApiTaskControllerTest.php` [(view more)](API-TEST-README.md)
+* Web Routes Testing at `laravel/tests/Feature/WebTaskControllerTest.php` [(view more)](WEB-API-README.md)
 
 ## Technologies Used
 
@@ -89,7 +99,7 @@ This is a simple task management application built with Laravel, designed to hel
 * PHP 8.2+
 * MySQL
 * Bootstrap 5
-* Laravel Sanctum
+* Laravel Sanctum (for API authorization, cookies were used for saving token in active session on web)
 * Laravel Auth UI (for login + register)
 * Docker compose (for emulating server)
 * Nginx
