@@ -15,11 +15,8 @@
 
     <!--------------Buttons for search and filters-------------->
     <a href="{{ route('tasks.create') }}" class="btn btn-success mb-3">Create New Task</a>
-    @if (isset($_GET['status']) and $_GET['status']=='pending')
-        <a href="{{ route('tasks.index', ['status' => 'completed']) }}" class="btn btn-secondary mb-3">Completed Tasks</a>
-    @elseif (isset($_GET['status']) and $_GET['status']=='completed')
-        <a href="{{ route('tasks.index', ['status' => 'pending']) }}" class="btn btn-warning mb-3">Pending Tasks</a>
-    @endif
+    <a href="{{ route('tasks.index', ['status' => 'completed']) }}" class="btn btn-secondary mb-3">Completed Tasks</a>
+    <a href="{{ route('tasks.index', ['status' => 'pending']) }}" class="btn btn-warning mb-3">Pending Tasks</a>
     <a href="{{ route('tasks.index') }}" class="btn btn-primary mb-3">See All Tasks</a>
     <!--------------End of buttons------------------------>
 
