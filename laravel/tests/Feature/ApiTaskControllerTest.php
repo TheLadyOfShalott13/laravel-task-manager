@@ -13,122 +13,392 @@ class ApiTaskControllerTest extends TestCase
 
     protected $user;
 
-    public function setUp(): void
+    //=========================Generate Token Tests====================================//
+
+    /**
+     * @return void
+     * Function to test generation of token used to authenticate API requests
+     */
+    public function test_successful_token_generation(): void
     {
-        parent::setUp();
+        $test_email     = 'test@example.com';
+        $test_password  = 'password123';
+        $test_user      = User::factory()->create(
+                            [
+                                'email'     => $test_email,
+                                'password'  => hash('sha256', $test_password),   //using sha256 because Auth::createToken() uses sha256
+                            ]
+                        );
 
-        // Create a test user and authenticate
-        $this->user = User::factory()->create();
-        $this->actingAs($this->user, 'web'); // Authenticate as the user
-    }
-
-    /** @test */
-    public function it_returns_a_list_of_tasks_for_authenticated_user()
-    {
-        // Create tasks for the authenticated user
-        Task::factory()->count(5)->create(['user_id' => $this->user->id]);
-
-        // Create tasks for another user (should not appear)
-        Task::factory()->count(3)->create();
-
-        $response = $this->getJson('/api/tasks');
+        $response       = $this->postJson(
+                                route('generate_token'),
+                                [
+                                    'email'     => $test_email,
+                                    'password'  => $test_password,
+                                ]
+                        );
 
         $response->assertStatus(200);
-        $response->assertJsonCount(5, 'data'); // Ensure only the user's tasks are returned
+        $response->assertJsonStructure(['message', 'token']);
+        $response->assertJson(['message' => 'Login successful']);
     }
 
-    /** @test */
-    public function it_creates_a_new_task_for_authenticated_user()
+    /**
+     * @return void
+     * Function to test generation of token used to authenticate API requests
+     */
+    public function test_failed_login_due_to_invalid_credentials(): void
     {
-        $taskData = [
-            'title' => 'Test Task',
-            'description' => 'This is a test task.',
-            'due_date' => now()->addDays(5)->toDateString(),
+        $test_email     = 'test@example.com';
+        $test_password  = 'password123';
+        $wrong_password = 'password1234';
+        $test_user      = User::factory()->create(
+                            [
+                                'email'     => $test_email,
+                                'password'  => hash('sha256', $test_password),   //using sha256 because Auth::createToken() uses sha256
+                            ]
+                        );
+
+        $response       = $this->postJson(
+                                route('generate_token'),
+                                [
+                                    'email'     => $test_email,
+                                    'password'  => $wrong_password,
+                                ]
+                        );
+
+        $response->assertStatus(401);
+        $response->assertJsonStructure(['message']);
+    }
+
+
+    /**
+     * @return void
+     * Function to validate token generation
+     */
+    public function test_failed_token_gen_missing_fields(): void
+    {
+        $response = $this->postJson(route('generate_token'), [
+            'email' => 'test@example.com',                                      // Missing fields
+        ]);
+        $response->assertStatus(422);                                     // Validation error
+        $response->assertJsonValidationErrors(['password']);
+    }
+
+
+    //=========================Index Tests====================================//
+    /**
+     * @return void
+     * Function to check the successful user fetch of tasks by making a GET request to index route
+     */
+    public function test_successful_user_fetch_tasks(): void
+    {
+        $test_token = 'TEST_TOKEN_VALUE';
+        $response   = $this->withHeaders(['Authorization' => 'Bearer '.$test_token])->getJson(route('tasks.index'));
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure(['tasks']);
+    }
+
+    /**
+     * @return void
+     * Function to check the successful fetch of tasks where count = 0 by making a GET request to index route
+     */
+    public function test_successful_user_fetch_empty_tasks(): void
+    {
+        $test_token = 'TEST_TOKEN_VALUE';
+        $response   = $this->withHeaders(['Authorization' => 'Bearer '.$test_token])->getJson(route('tasks.index'));
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure(['tasks']);
+        $response->assertJsonCount(0, 'tasks');                                        // Check that exactly $no_of_tasks tasks are returned
+    }
+
+
+    /**
+     * @return void
+     * Function to check the successful fetch of tasks where count = 0 by making a GET request to index route
+     */
+    public function test_unauthenticated_user_access(): void
+    {
+        $test_token = 'TEST_TOKEN_VALUE';
+        $response   = $this->withHeaders(['Authorization' => 'Bearer '.$test_token])->getJson(route('tasks.index'));
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure(['tasks']);
+        $response->assertJsonCount(0, 'tasks');                                        // Check that exactly 0 tasks are returned
+    }
+
+
+    /**
+     * @return void
+     * Function to test non existent user or wrong bearer token
+     */
+    public function test_nonexistent_user_returns_error(): void
+    {
+        $test_token = 'TEST_TOKEN_VALUE';
+        $response   = $this->withHeaders(['Authorization' => 'Bearer '.$test_token])->getJson(route('tasks.index'));
+
+        $response->assertStatus(404);
+        $response->assertJsonStructure(['message']);
+    }
+
+
+    //=========================Task Creation Tests====================================//
+    /**
+     * @return void
+     * Function to check successful user task creation
+     */
+    public function test_successful_user_task_creation(): void
+    {
+        $test_token = 'TEST_TOKEN_VALUE';
+        $test_data  = [
+            'title'         => 'New Task',
+            'description'   => 'This is a test description.',
+            'due_date'      => '2025-03-21',
         ];
 
-        $response = $this->postJson('/api/tasks', $taskData);
-
+        $response = $this->withHeaders(['Authorization' => 'Bearer '.$test_token])->postJson(route('tasks.store'), $test_data);
         $response->assertStatus(201);
-        $response->assertJsonFragment(['title' => 'Test Task']);
-
-        $this->assertDatabaseHas('tasks', [
-            'title' => 'Test Task',
-            'user_id' => $this->user->id,
-        ]);
+        $this->assertDatabaseHas('tasks', $test_data);
     }
 
-    /** @test */
-    public function it_denies_task_creation_for_unauthenticated_users()
+    /**
+     * @return void
+     * Function to test validation upon task creation
+     */
+    public function test_task_creation_validation_errors(): void
     {
-        // Log out the user
-        $this->be(null);
 
-        $response = $this->postJson('/api/tasks', [
-            'title' => 'Test Task',
-            'description' => 'Unauthorized user cannot create this.',
-        ]);
+        $test_token = 'TEST_TOKEN_VALUE';
+        $invalid_test_data  = [
+            'title'         => '',
+            'description'   => 'This is fine',
+            'due_date'      => 'not-a-date',
+        ];
 
-        $response->assertStatus(401); // Unauthorized
+        $response = $this->withHeaders(['Authorization' => 'Bearer '.$test_token])->postJson(route('tasks.store'), $invalid_test_data);
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['title', 'due_date']);
+        $this->assertDatabaseCount('tasks', 0);                                 // No tasks should be created
     }
 
-    /** @test */
-    public function it_shows_a_specific_task_belongs_to_authenticated_user()
+    /**
+     * @return void
+     * Function to simulate a mock case of throwing exception and handling it while creating task
+     */
+    public function test_task_creation_exception_errors(): void
     {
-        $task = Task::factory()->create(['user_id' => $this->user->id]);
 
-        $response = $this->getJson("/api/tasks/{$task->id}");
+        $test_token = 'TEST_TOKEN_VALUE';
+        $test_data  = [
+            'title'         => 'New Task',
+            'description'   => 'This is a test description.',
+            'due_date'      => '2025-03-21',
+        ];
+
+        $this->mock(Task::class, function ($mock) {                                 //Simulating throwing of an exception
+            $mock->shouldReceive('create')->andThrow(new \Exception('Error while creating task!'));
+        });
+
+        $response = $this->withHeaders(['Authorization' => 'Bearer '.$test_token])->postJson(route('tasks.store'), $test_data);
+        $response->assertStatus(400);
+        $response->assertJson(['message' => 'Error while creating task!']);
+        $this->assertDatabaseCount('tasks', 0);                                 // No tasks should be created
+    }
+
+    /**
+     * @return void
+     * Function to check how task creation task handles requests without bearer token
+     */
+    public function test_unauthenticated_user_task_creation(): void
+    {
+        $test_token = 'TEST_TOKEN_VALUE';
+        $invalid_test_data  = [
+            'title'         => '',
+            'description'   => 'This is fine',
+            'due_date'      => 'not-a-date',
+        ];
+
+        $response = $this->postJson(route('tasks.store'), $invalid_test_data);         //No Authorization header given
+        $response->assertStatus(401);                                                  //request denied without auth bearer token
+    }
+
+
+    //=========================Task Fetching Single Row Tests====================================//
+    /**
+     * @return void
+     * Test fetching a single task of same user
+     */
+    public function test_user_getting_one_task(): void
+    {
+        $test_token     = 'TEST_TOKEN_VALUE';
+        $test_task_id   = 1;
+        $test_user_id   = 1;
+        $response       = $this->withHeaders(['Authorization' => 'Bearer '.$test_token])->getJson(route('tasks.show', ['task' => $test_task_id]));
 
         $response->assertStatus(200);
-        $response->assertJsonFragment(['id' => $task->id]);
+        $response->assertJson(
+            [
+                'single_task' => [
+                    'id'            => $test_task_id,
+                    'title'         => "Random Title",
+                    'description'   => "Random Description",
+                    'due_date'      => "Random Date",
+                    'user_id'       => $test_user_id
+                ]
+            ]
+        );
     }
 
-    /** @test */
-    public function it_denies_access_to_tasks_belonging_to_other_users()
+
+    /**
+     * @return void
+     * Test fetching a single task of same user
+     */
+    public function test_user_getting_one_task_of_another(): void
     {
-        $task = Task::factory()->create(); // Task owned by another user
+        $test_token     = 'TEST_TOKEN_VALUE';
+        $test_task_id   = 1;
+        $response       = $this->withHeaders(['Authorization' => 'Bearer '.$test_token])->getJson(route('tasks.show', ['task' => $test_task_id]));
 
-        $response = $this->getJson("/api/tasks/{$task->id}");
-
-        $response->assertStatus(403); // Forbidden
+        $response->assertStatus(403);
     }
 
-    /** @test */
-    public function it_updates_a_task_for_authenticated_user()
+
+    /**
+     * @return void
+     * Test fetching a single task of same user
+     */
+    public function test_unauthenticated_user_fetch_single_task(): void
     {
-        $task = Task::factory()->create(['user_id' => $this->user->id]);
+        $test_token     = 'TEST_TOKEN_VALUE';
+        $test_task_id   = 1;
+        $response       = $this->getJson(route('tasks.show', ['task' => $test_task_id]));
 
-        $updatedData = ['title' => 'Updated Task Title'];
+        $response->assertStatus(401);   //validation error
+    }
 
-        $response = $this->patchJson("/api/tasks/{$task->id}", $updatedData);
+
+    //=========================Task update single row Tests====================================//
+    /**
+     * @return void
+     * Function to test successful update of task for a validated user
+     */
+    public function test_success_update_of_task_for_valid_user()
+    {
+        $test_token     = 'TEST_TOKEN_VALUE';
+        $test_task_id   = 1;
+        $test_data      = [
+            'title'         => 'New Task',
+            'description'   => 'This is a test description.',
+            'due_date'      => '2025-03-21',
+        ];
+
+        $response = $this->withHeaders(['Authorization' => 'Bearer '.$test_token])->putJson(route('tasks.update', ['task' => $test_task_id]),$test_data);
+        $response->assertStatus(200);
+        $this->assertDatabaseHas('tasks', $test_data);
+    }
+
+
+    /**
+     * @return void
+     * Function to test updating with invalid data
+     */
+    public function test_validation_fails_with_invalid_data()
+    {
+        $test_token     = 'TEST_TOKEN_VALUE';
+        $test_task_id   = 1;
+        $test_data      = [
+            'title'         => '',
+            'description'   => 'This is a test description.',
+            'due_date'      => '',
+        ];
+
+        $response = $this->withHeaders(['Authorization' => 'Bearer '.$test_token])->putJson(route('tasks.update', ['task' => $test_task_id]),$test_data);
+        $response->assertStatus(422);
+        $response->assertJsonStructure(['message']);
+    }
+
+
+    /**
+     * @return void
+     * Function to test if auth bearer token is not sent
+     */
+    public function test_update_fails_when_user_is_not_authorized()
+    {
+        $test_token     = 'TEST_TOKEN_VALUE';
+        $test_task_id   = 1;
+        $test_data      = [
+            'title'         => 'New Task',
+            'description'   => 'This is a test description.',
+            'due_date'      => '2025-03-21',
+        ];
+
+        $response = $this->putJson(route('tasks.update', ['tasks' => $test_task_id]),$test_data);
+        $response->assertStatus(404);
+        $response->assertJsonStructure(['message']);
+    }
+
+    /**
+     * @return void
+     * Function to check if task id does not exist
+     */
+    public function test_update_fails_when_task_does_not_exist()
+    {
+        $test_token     = 'TEST_TOKEN_VALUE';
+        $test_task_id   = 1;
+        $response = $this->withHeaders(['Authorization' => 'Bearer '.$test_token])->putJson(route('tasks.update', ['task' => $test_task_id]));
+        $response->assertStatus(404);
+        $response->assertJsonStructure(['message']);
+    }
+
+
+    //=========================Delete task Tests====================================//
+    /**
+     * @return void
+     * Function to check for successful task deletion
+     */
+    public function test_successful_task_deletion_by_authorized_user()
+    {
+        $test_token     = 'TEST_TOKEN_VALUE';
+        $test_task_id   = 1;
+        $response       = $this->withHeaders(['Authorization' => 'Bearer '.$test_token])->deleteJson(route('tasks.destroy', ['task' => $test_task_id]));
 
         $response->assertStatus(200);
-        $response->assertJsonFragment(['title' => 'Updated Task Title']);
-
-        $this->assertDatabaseHas('tasks', [
-            'id' => $task->id,
-            'title' => 'Updated Task Title',
-        ]);
+        $response->assertJsonStructure(['message']);
+        $this->assertDatabaseMissing('tasks', ['id' => $test_task_id]);
     }
 
-    /** @test */
-    public function it_deletes_a_task_for_authenticated_user()
+    /**
+     * @return void
+     * Function to check for handling unauthorized user deletion
+     */
+    public function test_unauthorized_user_task_delete()
     {
-        $task = Task::factory()->create(['user_id' => $this->user->id]);
+        $test_token     = 'TEST_TOKEN_VALUE';
+        $test_task_id   = 1;
+        $response       = $this->deleteJson(route('tasks.destroy', ['task' => $test_task_id]));
 
-        $response = $this->deleteJson("/api/tasks/{$task->id}");
-
-        $response->assertStatus(200);
-        $this->assertDatabaseMissing('tasks', ['id' => $task->id]);
+        $response->assertStatus(403);
+        $response->assertJsonStructure(['message']);
+        $this->assertDatabaseHas('tasks', ['id' => $test_task_id]);
     }
 
-    /** @test */
-    public function it_prevents_deleting_tasks_of_other_users()
+    /**
+     * @return void
+     * Function to check for handling non existent task deletion
+     */
+    public function test_task_delete_not_existing()
     {
-        $task = Task::factory()->create(); // Task owned by another user
+        $test_token     = 'TEST_TOKEN_VALUE';
+        $test_task_id   = 1;
+        $response       = $this->withHeaders(['Authorization' => 'Bearer '.$test_token])->deleteJson(route('tasks.destroy', ['task' => $test_task_id]));
 
-        $response = $this->deleteJson("/api/tasks/{$task->id}");
-
-        $response->assertStatus(403); // Forbidden
+        $response->assertStatus(404);
+        $response->assertJsonStructure(['message']);
+        $this->assertDatabaseMissing('tasks', ['id' => $test_task_id]);
     }
+
 }
 
